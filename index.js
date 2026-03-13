@@ -1,47 +1,114 @@
-import child from 'child_process' 
-import pslist from 'ps-list' 
-import { promisify } from 'util'  
+import child from 'child_process';
+import { promisify } from 'util';
 
-const execAsync = promisify(child.exec);  
+const execAsync = promisify(child.exec);
 
-child.exec('netstat -ano', async (error, stdout, stderr) => {     
-    if (error) {         
-        console.error(`Erro ao executar netstat: ${error.message}`);         
-        return;     
-    }     
-    if (stderr) {         
-        console.error(`Erro no comando: ${stderr}`);         
-        return;     
-    }      
-    
-    const lines = stdout.split('\n');     
-    const connections = [];      
-    
-    const isIPv4 = (ip) => /^(\d{1,3}\.){3}\d{1,3}(:\d+)?$/.test(ip);     
-    const isIPv6 = (ip) => /^([\da-f]{1,4}:){7}[\da-f]{1,4}(:\d+)?$/.test(ip);      
-    
-    lines.forEach((line) => {         
-        const parts = line.trim().split(/\s+/);          // Verifica se a linha possui todas as colunas esperadas         
+let activeConnectionsCache = new Map(); 
+let disconnectLog = []; 
+
+// Formata o IP (IPv4 e IPv6)
+const formatIP = (address) => {
+    if (!address) return '---';
+    if (address.includes(']')) return address.match(/\[(.*?)\]/)?.[0] || address;
+    return address.split(':').slice(0, -1).join(':') || address;
+};
+
+// Pega o nome do arquivo com extensão
+const formatProcessName = (proc) => {
+    if (!proc) return 'Unknown';
+    if (proc.Path) return proc.Path.split('\\').pop();
+    return proc.Name;
+};
+
+// Encurta o caminho para caber na tabela, mantendo o final (que é o mais importante)
+const truncatePath = (path) => {
+    if (!path) return 'RESTRICTED ACCESS';
+    return path;
+};
+
+async function monitor() {
+    try {
+        // Busca processos via PowerShell
+        const psCmd = `powershell -Command "Get-Process | Select-Object Id, Name, Path | ConvertTo-Json"`;
+        const { stdout: psOut } = await execAsync(psCmd, { maxBuffer: 1024 * 1024 * 10 });
+        const processMap = new Map(JSON.parse(psOut).map(p => [p.Id, p]));
+
+        // Busca conexões
+        const { stdout: netstatOut } = await execAsync('netstat -ano');
+        const lines = netstatOut.split('\n');
         
-        if (parts.length >= 5) {             
-            const [protocol, localAddress, foreignAddress, state, pid] = parts.slice(0, 5);              
-            if(isIPv4(foreignAddress) || isIPv6(foreignAddress)) {                 
-                if(pid > 0 && !foreignAddress.startsWith("127.0.0.1") && !foreignAddress.startsWith("0.0.0.0")) {                     
-                    connections.push({ protocol, localAddress, foreignAddress, state, pid });                 
-                }             
-            }         
-        }     
-    });      
-    const processes = await pslist();      
-    connections.forEach(async (connection) => {         
-        const process = processes.find((proc) => proc.pid === Number(connection.pid));         
+        let currentConnections = new Map();
+        let currentTable = [];
 
-        const { stdout } = await execAsync(`powershell -Command "Get-Process -Id ${connection.pid} | Select-Object -ExpandProperty Path"`);         
+        for (const line of lines) {
+            const parts = line.trim().split(/\s+/);
+            if (parts.length < 5) continue;
+
+            const [proto, local, foreign, state, pidStr] = parts;
+            const pid = parseInt(pidStr);
+
+            // Ignora tráfego local
+            if (foreign.includes('127.0.0.1') || foreign.includes('[::1]') || foreign === '*:*' || foreign === '0.0.0.0:0') continue;
+
+            const proc = processMap.get(pid);
+            const processName = formatProcessName(proc);
+            const remoteIP = formatIP(foreign);
+            const connectionKey = `${pid}-${remoteIP}`;
+
+            const data = {
+                PROCESS: processName,
+                PID: pid,
+                REMOTE_IP: remoteIP,
+                STATUS: state,
+                PATH: truncatePath(proc?.Path)
+            };
+
+            currentConnections.set(connectionKey, data);
+            if (state === 'ESTABLISHED') currentTable.push(data);
+        }
+
+        // Detecta desconexões
+        for (let [key, oldData] of activeConnectionsCache) {
+            if (!currentConnections.has(key)) {
+                disconnectLog.unshift({
+                    PROCESS: oldData.PROCESS,
+                    IP: oldData.REMOTE_IP,
+                    CLOSED_AT: new Date().toLocaleTimeString(),
+                    PATH: oldData.PATH
+                });
+            }
+        }
+
+        if (disconnectLog.length > 200) disconnectLog.pop();
+        activeConnectionsCache = currentConnections;
+
+        // Limpeza total da tela (ANSI Escape Codes)
+        process.stdout.write('\x1Bc'); 
+        process.stdout.write('\x1B[0;0f'); 
+
+        console.log("====================================================================================================");
+        console.log(`| Network Security Monitor - Real-Time Directories | ${new Date().toLocaleTimeString()}`);
+        console.log("====================================================================================================");
         
-        const processPath = stdout.trim();                  
-        // connection.processPath = process ? process.name : 'Não encontrado';  
+        console.log("\n[ CONNECTIONS ESTABLISHED ]");
+        if (currentTable.length > 0) {
+            console.table(currentTable);
+        } else {
+            console.log("No active external connection...");
+        }
 
-        connection.processPath = processPath;                    
-        console.log(connection);     
-    }); 
-});
+        console.log("\n[ LATEST DISCONNECTIONS ]");
+        if (disconnectLog.length > 0) {
+            console.table(disconnectLog);
+        } else {
+            console.log("Waiting for connections to close...");
+        }
+
+    } catch (err) {
+        
+    }
+}
+
+// Execução
+setInterval(monitor, 2500);
+monitor();
