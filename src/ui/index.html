@@ -1,0 +1,1180 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Network Virus Identifier</title>
+<link rel="icon" href="/logo.png">
+<style>
+:root {
+    --bg: #111110;
+    --panel: #161615;
+    --raised: #1e1e1c;
+    --line: #2a2a27;
+    --line-2: #3b3a36;
+    --fg: #ecebe6;
+    --fg-2: #b9b7ae;
+    --muted: #84827a;
+    --red: #f2555a;
+    --amber: #eea23b;
+    --yellow: #d4c24a;
+    --green: #62b46f;
+    --blue: #74aaea;
+    --red-bg: rgba(242, 85, 90, .08);
+    --amber-bg: rgba(238, 162, 59, .07);
+    --mono: "Cascadia Mono", "Cascadia Code", Consolas, monospace;
+    --sans: "Segoe UI", system-ui, sans-serif;
+    color-scheme: dark;
+}
+:root[data-theme="light"] {
+    --bg: #f4f3ee;
+    --panel: #fbfaf6;
+    --raised: #ecebe4;
+    --line: #dcdad1;
+    --line-2: #c6c4ba;
+    --fg: #1b1b19;
+    --fg-2: #46453f;
+    --muted: #77756c;
+    --red: #cf2f36;
+    --amber: #b56a00;
+    --yellow: #8c7a00;
+    --green: #2c7a3c;
+    --blue: #2a68b0;
+    --red-bg: rgba(207, 47, 54, .06);
+    --amber-bg: rgba(181, 106, 0, .06);
+    color-scheme: light;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--fg); font: 13px/1.5 var(--sans); display: flex; flex-direction: column; overflow: hidden; }
+a { color: inherit; text-underline-offset: 2px; }
+.mono { font-family: var(--mono); font-size: 12px; }
+.muted { color: var(--muted); }
+.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+svg.i { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line-2); border: 3px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+
+button {
+    font: inherit; color: var(--fg); background: transparent; cursor: pointer;
+    border: 1px solid var(--line-2); border-radius: 3px; padding: 5px 11px;
+    display: inline-flex; align-items: center; gap: 7px; white-space: nowrap;
+}
+button:hover { background: var(--raised); }
+button:disabled { opacity: .5; cursor: default; }
+button.solid { background: var(--fg); color: var(--bg); border-color: var(--fg); font-weight: 600; }
+button.solid:hover { opacity: .88; }
+button.bad { color: var(--red); border-color: color-mix(in srgb, var(--red) 45%, var(--line-2)); }
+button.bad:hover { background: var(--red-bg); }
+button.flat { border-color: transparent; color: var(--fg-2); }
+button.flat:hover { color: var(--fg); }
+
+/* ---------- Barra superior ---------- */
+.top { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); background: var(--panel); min-height: 48px; padding: 0 20px; gap: 26px; }
+.brand { display: flex; align-items: center; gap: 9px; font-weight: 700; letter-spacing: .4px; font-size: 12.5px; text-transform: uppercase; white-space: nowrap; }
+.brand img { width: 22px; height: 22px; }
+.brand small { font-weight: 400; color: var(--muted); letter-spacing: 0; text-transform: none; font-size: 12px; }
+.tabs { display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs button { border: 0; border-radius: 0; padding: 0 12px; color: var(--muted); border-bottom: 2px solid transparent; margin-bottom: -1px; height: auto; }
+.tabs button:hover { background: transparent; color: var(--fg); }
+.tabs button.on { color: var(--fg); border-bottom-color: var(--fg); }
+.tabs .n { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.tabs .n.red { color: var(--red); font-weight: 700; }
+.tabs .n.amber { color: var(--amber); font-weight: 700; }
+.top .right { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+.live { display: flex; align-items: center; gap: 8px; font: 11.5px var(--mono); color: var(--muted); margin-right: 6px; white-space: nowrap; }
+.live b { color: var(--green); font-weight: 600; letter-spacing: .5px; }
+.live b.paused { color: var(--amber); } .live b.error { color: var(--red); }
+.blink { width: 7px; height: 7px; background: currentColor; animation: blink 1.4s steps(2, start) infinite; }
+.paused .blink, b.paused + .blink { animation: none; }
+@keyframes blink { to { visibility: hidden; } }
+.warn-admin { font: 11.5px var(--mono); color: var(--amber); border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); padding: 3px 7px; border-radius: 3px; white-space: nowrap; }
+
+/* ---------- Cabeçalho da página ---------- */
+.head { display: flex; align-items: flex-end; gap: 16px; padding: 22px 28px 14px; flex-wrap: wrap; }
+.head h1 { margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -.1px; }
+.head p { margin: 2px 0 0; color: var(--muted); }
+.head .grow { flex: 1; }
+.search { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line-2); border-radius: 3px; padding: 0 9px; background: var(--panel); width: 320px; max-width: 100%; }
+.search:focus-within { border-color: var(--fg-2); }
+.search input { flex: 1; min-width: 0; border: 0; outline: 0; background: transparent; color: var(--fg); font: inherit; padding: 6px 0; }
+.search kbd { font: 11px var(--mono); color: var(--muted); }
+.content { flex: 1; overflow: auto; padding: 0 28px 40px; }
+
+/* ---------- Blocos ---------- */
+.box { border: 1px solid var(--line); background: var(--panel); border-radius: 3px; }
+.box-h { display: flex; align-items: baseline; gap: 10px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+.box-h h2 { margin: 0; font-size: 11.5px; font-weight: 600; text-transform: uppercase; letter-spacing: .7px; }
+.box-h .grow { flex: 1; }
+.box-h .meta { font: 11.5px var(--mono); color: var(--muted); }
+.box-h button { padding: 2px 8px; font-size: 12px; align-self: center; }
+.row2 { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 16px; margin-top: 16px; align-items: start; }
+
+.status { display: grid; grid-template-columns: 4px 1fr auto; border: 1px solid var(--line); background: var(--panel); border-radius: 3px; overflow: hidden; }
+.status .rule { background: var(--tone); }
+.status .txt { padding: 16px 18px; }
+.status .lbl { font: 11px var(--mono); color: var(--muted); letter-spacing: .6px; text-transform: uppercase; }
+.status .lbl b { color: var(--tone); font-weight: 600; }
+.status h2 { margin: 3px 0 2px; font-size: 18px; font-weight: 600; }
+.status p { margin: 0; color: var(--fg-2); max-width: 760px; }
+.status .acts { display: flex; align-items: center; gap: 8px; padding: 16px 18px; }
+
+.metrics { display: grid; grid-template-columns: repeat(5, 1fr); border: 1px solid var(--line); background: var(--panel); border-radius: 3px; margin-top: 16px; }
+.metric { padding: 13px 16px 12px; border-left: 1px solid var(--line); cursor: pointer; min-width: 0; }
+.metric:first-child { border-left: 0; }
+.metric:hover { background: var(--raised); }
+.metric .k { font-size: 11px; text-transform: uppercase; letter-spacing: .6px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.metric .v { font: 600 28px/1.15 var(--mono); margin-top: 4px; font-variant-numeric: tabular-nums; }
+.metric .v.red { color: var(--red); } .metric .v.amber { color: var(--amber); }
+.metric svg { display: block; width: 100%; height: 18px; margin-top: 6px; }
+
+.chart-wrap { position: relative; padding: 14px 14px 10px 44px; }
+.chart-wrap svg { display: block; width: 100%; height: 236px; }
+.chart-wrap .ylab { position: absolute; left: 10px; font: 10.5px var(--mono); color: var(--muted); transform: translateY(-50%); width: 28px; text-align: right; }
+.chart-wrap .xlab { display: flex; justify-content: space-between; font: 10.5px var(--mono); color: var(--muted); margin-top: 4px; }
+.legend { display: flex; gap: 14px; font: 11.5px var(--mono); color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 14px; height: 0; border-top: 2px solid var(--fg); vertical-align: middle; margin-right: 6px; }
+.legend span.dash::before { border-top: 2px dashed var(--muted); }
+
+/* ---------- Tabelas ---------- */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-weight: 600; font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; padding: 8px 12px; border-bottom: 1px solid var(--line); white-space: nowrap; position: sticky; top: 0; background: var(--panel); z-index: 1; }
+td { padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+tr:last-child td { border-bottom: 0; }
+tr.click { cursor: pointer; }
+tr.click:hover td { background: var(--raised); }
+tr.sel td { background: var(--raised); }
+tr.sel td:first-child { box-shadow: inset 2px 0 0 var(--fg); }
+tr.r-high td { background: var(--red-bg); }
+tr.r-medium td { background: var(--amber-bg); }
+tr.r-high td:first-child { box-shadow: inset 2px 0 0 var(--red); }
+tr.r-medium td:first-child { box-shadow: inset 2px 0 0 var(--amber); }
+tr.sep td { background: var(--bg); font: 600 11px var(--mono); letter-spacing: .6px; color: var(--muted); text-transform: uppercase; padding: 14px 12px 6px; cursor: default; }
+tr.sep:first-child td { padding-top: 8px; }
+td.r { text-align: right; }
+td.nw, th.nw { white-space: nowrap; }
+.proc { display: flex; gap: 10px; align-items: flex-start; min-width: 0; }
+.proc .nm { font-weight: 600; }
+.proc .pid { font: 11px var(--mono); color: var(--muted); margin-left: 6px; }
+.proc .pth { font: 11.5px var(--mono); color: var(--muted); word-break: break-all; }
+.why { margin-top: 3px; font-size: 12px; color: var(--fg-2); }
+.why .s { color: var(--muted); margin: 0 5px; }
+.r-high .why { color: var(--red); } .r-medium .why { color: var(--amber); }
+.dest { font: 12px var(--mono); color: var(--fg-2); max-width: 300px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tag { font: 11px var(--mono); color: var(--muted); border: 1px solid var(--line-2); padding: 0 5px; border-radius: 2px; white-space: nowrap; }
+.tag.red { color: var(--red); border-color: color-mix(in srgb, var(--red) 45%, transparent); }
+.tag.amber { color: var(--amber); border-color: color-mix(in srgb, var(--amber) 45%, transparent); }
+.tag.blue { color: var(--blue); border-color: color-mix(in srgb, var(--blue) 45%, transparent); }
+
+/* Ícone do programa */
+.ico { width: 18px; height: 18px; flex: none; display: grid; place-items: center; font: 700 10px var(--mono); color: var(--bg); background: var(--muted); border-radius: 2px; margin-top: 1px; position: relative; overflow: hidden; }
+.ico.has { background: transparent; }
+.ico.has span { display: none; }
+.ico img { width: 18px; height: 18px; position: absolute; inset: 0; }
+.ico.lg { width: 32px; height: 32px; font-size: 15px; border-radius: 3px; }
+.ico.lg img { width: 32px; height: 32px; }
+
+/* Indicador de risco */
+.lv { font: 600 11.5px var(--mono); letter-spacing: .3px; white-space: nowrap; color: var(--c); }
+.lv::before { content: ""; display: inline-block; width: 8px; height: 8px; background: var(--c); margin-right: 7px; vertical-align: 0; }
+.lv .sc { font-weight: 400; color: var(--muted); margin-left: 6px; }
+.c-high { --c: var(--red); } .c-medium { --c: var(--amber); } .c-low { --c: var(--yellow); } .c-clean { --c: var(--green); } .c-trusted { --c: var(--blue); }
+.lv.c-clean, .lv.c-trusted { font-weight: 400; color: var(--muted); }
+
+.signed { color: var(--fg-2); font-size: 12px; }
+.signed::before { content: "✓ "; color: var(--green); font-weight: 700; }
+.unsigned { color: var(--red); font-size: 12px; }
+.unsigned::before { content: "✕ "; font-weight: 700; }
+
+/* ---------- Filtros ---------- */
+.filters { display: flex; align-items: center; gap: 14px; margin-bottom: 10px; flex-wrap: wrap; font-size: 12.5px; }
+.filters .grow { flex: 1; }
+.opt { display: inline-flex; border: 1px solid var(--line-2); border-radius: 3px; overflow: hidden; }
+.opt button { border: 0; border-radius: 0; padding: 4px 10px; color: var(--muted); border-left: 1px solid var(--line-2); }
+.opt button:first-child { border-left: 0; }
+.opt button.on { background: var(--fg); color: var(--bg); }
+.opt .n { font-family: var(--mono); font-size: 11px; opacity: .75; margin-left: 4px; }
+.check { display: inline-flex; align-items: center; gap: 7px; cursor: pointer; user-select: none; color: var(--fg-2); }
+.check .bx { width: 13px; height: 13px; border: 1px solid var(--line-2); border-radius: 2px; display: grid; place-items: center; font-size: 10px; line-height: 1; }
+.check.on .bx { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.count { font: 11.5px var(--mono); color: var(--muted); }
+
+/* ---------- Log ---------- */
+.log { font: 12px/1.45 var(--mono); }
+.log-row { display: grid; grid-template-columns: 70px 16px minmax(140px, 220px) minmax(0, 1fr) auto; gap: 12px; padding: 0 14px; min-height: 32px; border-bottom: 1px solid var(--line); align-items: center; }
+.log-row:last-child { border-bottom: 0; }
+.log-row:hover { background: var(--raised); }
+.log-row .t { color: var(--muted); }
+.log-row .sym { font-weight: 700; text-align: center; }
+.log-row .who { display: flex; gap: 7px; align-items: center; min-width: 0; font-family: var(--sans); font-weight: 600; font-size: 12.5px; }
+.log-row .who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-row .who .ico { margin-top: 0; width: 16px; height: 16px; font-size: 9px; }
+.log-row .who .ico img { width: 16px; height: 16px; }
+.log-row .what { color: var(--fg-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.log-row .where { color: var(--muted); white-space: nowrap; }
+.e-open .sym { color: var(--green); } .e-close .sym { color: var(--muted); } .e-proc_new .sym { color: var(--blue); }
+.e-alert { background: var(--red-bg); } .e-alert .sym, .e-alert .what { color: var(--red); }
+.log.compact .log-row { grid-template-columns: 62px 14px minmax(0, 1fr); }
+.log.compact .what, .log.compact .where { display: none; }
+
+/* Barras do ranking */
+.rank td { padding: 7px 14px; }
+.bar { height: 3px; background: var(--line); margin-top: 5px; }
+.bar i { display: block; height: 100%; background: var(--fg-2); }
+
+.empty { padding: 34px 16px; text-align: center; color: var(--muted); }
+.empty b { display: block; color: var(--fg); font-weight: 600; margin-bottom: 2px; }
+
+.note { border: 1px solid var(--line); background: var(--panel); border-radius: 3px; padding: 14px 16px; display: flex; gap: 16px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+.note .grow { flex: 1; min-width: 240px; }
+.note h2 { margin: 0 0 3px; font-size: 14px; }
+.note p { margin: 0; color: var(--fg-2); }
+.cmd { font: 11.5px/1.5 var(--mono); color: var(--fg-2); word-break: break-all; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; max-width: 560px; }
+
+/* ---------- Painel de detalhes ---------- */
+.shade { position: fixed; inset: 0; background: rgba(0, 0, 0, .35); opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 20; }
+.shade.on { opacity: 1; pointer-events: auto; }
+.panel { position: fixed; top: 0; right: 0; bottom: 0; width: 580px; max-width: 100%; background: var(--panel); border-left: 1px solid var(--line-2); transform: translateX(100%); transition: transform .18s ease-out; z-index: 21; display: flex; flex-direction: column; }
+.panel.on { transform: none; }
+.p-head { display: flex; gap: 12px; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.p-head h2 { margin: 0; font-size: 17px; word-break: break-all; }
+.p-head .grow { flex: 1; min-width: 0; }
+.p-body { flex: 1; overflow: auto; }
+.p-sec { padding: 16px 20px; border-bottom: 1px solid var(--line); }
+.p-sec:last-child { border-bottom: 0; }
+.p-sec h3 { margin: 0 0 10px; font: 600 11px var(--mono); text-transform: uppercase; letter-spacing: .7px; color: var(--muted); }
+.verdict { display: flex; align-items: flex-end; gap: 16px; }
+.verdict .score { font: 600 44px/1 var(--mono); color: var(--c); }
+.verdict .lvl { font: 600 13px var(--mono); color: var(--c); text-transform: uppercase; letter-spacing: .6px; }
+.verdict p { margin: 2px 0 0; color: var(--fg-2); }
+.meter { display: grid; grid-template-columns: repeat(20, 1fr); gap: 2px; margin-top: 12px; }
+.meter i { height: 6px; background: var(--line); }
+.meter i.f { background: var(--c); }
+.acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.acts a { text-decoration: none; }
+.reasons td { padding: 7px 0; }
+.reasons td:first-child { width: 52px; font: 600 12px var(--mono); }
+.reasons .pos { color: var(--red); } .reasons .neg { color: var(--green); }
+.reasons .d { font: 11.5px var(--mono); color: var(--muted); word-break: break-all; }
+.disc { margin-top: 10px; font-size: 12px; color: var(--muted); }
+dl { display: grid; grid-template-columns: 130px minmax(0, 1fr); margin: 0; gap: 0; }
+dt, dd { padding: 6px 0; border-bottom: 1px solid var(--line); margin: 0; }
+dt { color: var(--muted); }
+dd { word-break: break-all; }
+dl > :nth-last-child(-n+2) { border-bottom: 0; }
+pre { margin: 0; font: 11.5px/1.55 var(--mono); white-space: pre-wrap; word-break: break-all; color: var(--fg-2); background: var(--bg); border: 1px solid var(--line); padding: 10px 12px; border-radius: 3px; max-height: 180px; overflow: auto; }
+.conns td { padding: 6px 0; font-size: 12px; vertical-align: baseline; }
+.conns td + td { padding-left: 12px; }
+.conns .h { font-weight: 600; font-family: var(--sans); }
+.gone { padding: 10px 20px; background: var(--amber-bg); color: var(--amber); border-bottom: 1px solid var(--line); font-size: 12.5px; }
+
+/* ---------- Modal / avisos ---------- */
+.modal-bg { position: fixed; inset: 0; background: rgba(0, 0, 0, .5); display: grid; place-items: center; z-index: 40; padding: 16px; }
+.modal { width: 430px; max-width: 100%; background: var(--panel); border: 1px solid var(--line-2); border-radius: 3px; }
+.modal h3 { margin: 0; padding: 14px 18px; border-bottom: 1px solid var(--line); font-size: 14px; }
+.modal p { margin: 0; padding: 16px 18px; color: var(--fg-2); white-space: pre-line; word-break: break-all; }
+.modal .m-act { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--line); }
+.modal .m-act .go { background: var(--red); border-color: var(--red); color: #fff; font-weight: 600; }
+#toasts { position: fixed; right: 16px; bottom: 16px; display: flex; flex-direction: column; gap: 8px; z-index: 50; max-width: calc(100vw - 32px); }
+.toast { background: var(--fg); color: var(--bg); padding: 9px 14px; border-radius: 3px; font-size: 12.5px; max-width: 420px; }
+.toast.err { background: var(--red); color: #fff; }
+
+/* ---------- Telas menores ---------- */
+@media (max-width: 1180px) {
+    .row2 { grid-template-columns: 1fr; }
+    .hide-md { display: none; }
+}
+@media (max-width: 760px) {
+    .top { flex-wrap: wrap; padding: 0 14px; gap: 0 12px; }
+    .brand { height: 46px; }
+    .brand .bt { display: none; }
+    .opt { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+    .opt button { flex: none; }
+    .conns .dest { max-width: 210px; }
+    .box-h .meta, .legend { display: none; }
+    td, th { padding-left: 10px; padding-right: 10px; }
+    .top .right { order: 2; }
+    .live, .warn-admin { display: none; }
+    .tabs { order: 3; width: 100%; border-top: 1px solid var(--line); margin: 0 -14px; padding: 0 6px; width: calc(100% + 28px); }
+    .tabs button { padding: 11px 10px; }
+    .head { padding: 16px 16px 12px; }
+    .search { width: 100%; }
+    .content { padding: 0 16px 32px; }
+    .status { grid-template-columns: 4px 1fr; }
+    .status .acts { grid-column: 2; padding-top: 0; flex-wrap: wrap; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .metric { border-left: 0; border-top: 1px solid var(--line); }
+    .metric:nth-child(-n+2) { border-top: 0; }
+    .metric:nth-child(even) { border-left: 1px solid var(--line); }
+    .metric:last-child { grid-column: span 2; }
+    .hide-sm { display: none; }
+    .log-row { grid-template-columns: 58px 12px minmax(0, 1fr); padding: 6px 12px; gap: 2px 10px; }
+    .log-row .what { grid-column: 3; white-space: normal; }
+    .log-row .where { display: none; }
+    dl { grid-template-columns: 100px minmax(0, 1fr); }
+    .p-head, .p-sec { padding-left: 16px; padding-right: 16px; }
+    .proc .pth { font-size: 11px; }
+}
+</style>
+</head>
+<body>
+<header class="top">
+    <div class="brand"><img src="/logo.png" alt=""><span class="bt">Network Virus Identifier</span></div>
+    <nav class="tabs" id="tabs"></nav>
+    <div class="right" id="topRight"></div>
+</header>
+<div class="head">
+    <div><h1 id="title"></h1><p id="sub"></p></div>
+    <div class="grow"></div>
+    <label class="search" id="searchBox"><span id="searchIco"></span><input id="search" type="text" autocomplete="off" spellcheck="false"><kbd>/</kbd></label>
+</div>
+<main class="content" id="content"></main>
+<div class="shade" id="shade"></div>
+<aside class="panel" id="panel"></aside>
+<div id="modal"></div>
+<div id="toasts"></div>
+
+<script>
+const TOKEN = '__TOKEN__';
+
+const ICONS = {
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    pause: '<path d="M8 5v14M16 5v14"/>',
+    play: '<path d="M7 4.5v15l12-7.5z"/>',
+    download: '<path d="M12 4v11m0 0-4.5-4.5M12 15l4.5-4.5M4 19h16"/>',
+    folder: '<path d="M3 6.5V18a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V8.5a1 1 0 0 0-1-1h-8L10 5H4a1 1 0 0 0-1 1.5z"/>',
+    kill: '<path d="M6 6l12 12M18 6 6 18"/>',
+    ban: '<circle cx="12" cy="12" r="8.5"/><path d="m6 6 12 12"/>',
+    unlock: '<rect x="4.5" y="11" width="15" height="9" rx="1"/><path d="M8 11V8a4 4 0 0 1 7.8-1.3"/>',
+    star: '<path d="m12 4 2.4 5 5.4.6-4 3.7 1.1 5.4L12 16l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6z"/>',
+    external: '<path d="M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+    copy: '<rect x="8" y="8" width="12" height="12" rx="1"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3"/>',
+    x: '<path d="M6 6l12 12M18 6 6 18"/>',
+    sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>',
+    moon: '<path d="M19.5 14.5A8 8 0 0 1 9.5 4.5a8 8 0 1 0 10 10z"/>',
+    refresh: '<path d="M20 11a8 8 0 0 0-14.6-4.5M4 4v4h4M4 13a8 8 0 0 0 14.6 4.5M20 20v-4h-4"/>',
+};
+const ic = (n) => `<svg class="i" viewBox="0 0 24 24">${ICONS[n] || ''}</svg>`;
+
+const I18N = {
+    pt: {
+        tabs: { overview: 'Resumo', processes: 'Processos', connections: 'Conexões', ports: 'Portas', history: 'Histórico', startup: 'Inicialização' },
+        subs: {
+            overview: 'O que está acessando a rede neste computador agora.',
+            processes: 'Programas com conexões ativas ou portas abertas para a rede.',
+            connections: 'Cada conexão ativa, com o programa responsável e o destino.',
+            ports: 'Portas em que programas aguardam conexões vindas de fora.',
+            history: 'Registro desta sessão: conexões abertas e fechadas, novos programas e alertas.',
+            startup: 'Programas registrados para iniciar junto com o Windows.',
+        },
+        live: 'AO VIVO', paused: 'PAUSADO', error: 'ERRO', notAdmin: 'sem admin',
+        pause: 'Pausar', resume: 'Continuar', export: 'Exportar',
+        searchPh: 'Filtrar por processo, IP, host ou porta',
+        all: 'Todos', suspicious: 'Suspeitos', lan: 'Incluir rede local', results: '{n} itens',
+        levels: { high: 'ALTO', medium: 'MÉDIO', low: 'BAIXO', clean: 'limpo', trusted: 'confiável' },
+        levelName: { high: 'Risco alto', medium: 'Risco médio', low: 'Risco baixo', clean: 'Limpo', trusted: 'Confiável' },
+        levelText: {
+            high: 'Vários sinais fortes de comportamento malicioso. Investigue.',
+            medium: 'Alguns sinais merecem verificação.',
+            low: 'Sinais fracos, comuns em programas legítimos.',
+            clean: 'Nenhum sinal suspeito.',
+            trusted: 'Marcado por você como confiável.',
+        },
+        status: {
+            label: 'Situação',
+            ok: 'Nenhum programa suspeito usando a rede.',
+            okText: '{n} programas com atividade de rede, todos sem sinais de alerta.',
+            med: '{n} programa(s) com sinais suspeitos.',
+            medText: 'Nada grave, mas vale abrir os detalhes e conferir.',
+            high: '{n} programa(s) com risco alto.',
+            highText: 'Programas com vários sinais típicos de malware estão usando a rede. Verifique cada um no VirusTotal.',
+            seeSus: 'Ver suspeitos', seeAll: 'Ver processos', startup: 'Verificar inicialização',
+        },
+        m: { processes: 'Processos com rede', internet: 'Conexões externas', listening: 'Portas expostas', high: 'Risco alto', medium: 'Risco médio' },
+        activity: 'Conexões', activityMeta: 'últimos 5 min', inet: 'internet', est: 'estabelecidas', now: 'agora', ago: '-{m} min',
+        top: 'Mais conexões', attention: 'Requer atenção', events: 'Eventos',
+        nothing: 'Nada suspeito no momento.', noEvents: 'Nenhum evento relevante ainda.',
+        startupBox: 'Inicialização', startupNone: 'Ainda não verificada.', startupRes: '{n} entradas · {s} suspeitas', open: 'Abrir',
+        sep: { attention: 'Requer atenção', others: 'Demais programas' },
+        col: { risk: 'Risco', process: 'Programa', publisher: 'Editor', conns: 'Conex.', ports: 'Portas', dests: 'Destinos', remote: 'Destino', state: 'Estado', scope: 'Rede', age: 'Duração', port: 'Porta', addr: 'Endereço', exposure: 'Exposição', type: 'Tipo', entry: 'Entrada', command: 'Comando' },
+        scope: { internet: 'internet', lan: 'rede local' },
+        exposed: 'exposta', localOnly: 'só local',
+        restricted: 'caminho restrito — execute como administrador', unsigned: 'sem assinatura', checking: 'verificando…', missing: 'arquivo não existe',
+        hf: { all: 'Tudo', alert: 'Alertas', proc_new: 'Novos', open: 'Conectou', close: 'Desconectou' },
+        ev: { open: 'conectou', close: 'desconectou', proc_new: 'começou a usar a rede', alert: 'risco alto' },
+        empty: 'Nada encontrado', emptySub: 'Ajuste os filtros ou a busca.', waiting: 'Coletando dados…',
+        st: {
+            title: 'Varredura de inicialização',
+            text: 'Lê chaves Run, pasta Inicializar, tarefas agendadas, serviços de terceiros, Winlogon e IFEO — os lugares onde malwares se registram para voltar depois de reiniciar.',
+            scan: 'Iniciar varredura', rescan: 'Verificar de novo', scanning: 'Verificando…', last: 'última: {t}',
+            none: 'Nenhuma varredura feita', noneSub: 'Leva poucos segundos.',
+        },
+        types: { startup: 'Run/Startup', task: 'Tarefa', service: 'Serviço', winlogon: 'Winlogon', ifeo: 'IFEO' },
+        d: {
+            score: 'Pontuação', actions: 'Ações', reasons: 'Motivos', noReasons: 'Nenhum sinal suspeito encontrado.',
+            connections: 'Conexões', listening: 'Portas em escuta', details: 'Arquivo e processo', cmd: 'Linha de comando',
+            path: 'Caminho', pid: 'PID', parent: 'Pai', started: 'Iniciado', fileCreated: 'Arquivo criado', size: 'Tamanho', publisher: 'Editor', sha: 'SHA-256',
+            openFolder: 'Abrir pasta', vt: 'VirusTotal', kill: 'Encerrar', block: 'Bloquear no firewall', unblock: 'Desbloquear', trust: 'Confiar', untrust: 'Remover confiança',
+            gone: 'Processo encerrado — exibindo os últimos dados conhecidos.', blocked: 'bloqueado no firewall',
+            disclaimer: 'Pontuação heurística: indica o que merece atenção, não é um veredito. Confirme no VirusTotal antes de apagar arquivos.',
+            killTitle: 'Encerrar {name}?', killText: 'O processo {pid} será finalizado imediatamente. Trabalho não salvo nele será perdido.',
+            blockTitle: 'Bloquear no firewall?', blockText: 'Todo o tráfego de entrada e saída deste programa será bloqueado:\n{path}',
+            confirm: 'Confirmar', cancel: 'Cancelar', copied: 'Copiado.', none: 'nenhuma', copy: 'copiar',
+        },
+        r: {
+            loc_recycle: 'roda de dentro da Lixeira', loc_temp: 'roda de pasta temporária', loc_public: 'roda da pasta Pública',
+            loc_startup: 'roda da pasta Inicializar', loc_downloads: 'roda de Downloads', loc_roaming: 'roda de AppData\\Roaming',
+            loc_programdata: 'solto em ProgramData', loc_desktop: 'roda da Área de Trabalho',
+            masquerade: 'nome de processo do Windows fora da pasta do Windows', unsigned: 'sem assinatura digital',
+            sig_tampered: 'assinatura adulterada', sig_invalid: 'assinatura inválida', sig_valid: 'editor verificado',
+            new_file: 'arquivo criado há menos de 3 dias', file_missing: 'arquivo não existe mais', path_hidden: 'caminho oculto',
+            lolbin_network: 'ferramenta do Windows abusada por malware acessando a internet', suspicious_cmd: 'linha de comando suspeita',
+            office_parent: 'aberto pelo Office (macro?)', rat_port: 'porta comum de RAT/backdoor',
+            listening_unsigned: 'sem assinatura e aceitando conexões externas', listening_rat_port: 'escutando em porta de backdoor',
+            beaconing: 'reconecta repetidamente ao mesmo IP (possível C2)', winlogon_modified: 'Winlogon alterado',
+            ifeo_debugger: 'debugger IFEO configurado', script_host: 'inicia por interpretador de script',
+        },
+        toastAlert: 'Risco alto: {name}', failed: 'Falhou: {msg}',
+        done: { kill: 'Processo encerrado.', block: 'Bloqueado no firewall.', unblock: 'Desbloqueado.', trust: 'Marcado como confiável.', untrust: 'Confiança removida.' },
+    },
+    en: {
+        tabs: { overview: 'Summary', processes: 'Processes', connections: 'Connections', ports: 'Ports', history: 'History', startup: 'Startup' },
+        subs: {
+            overview: 'What is using the network on this computer right now.',
+            processes: 'Programs with active connections or ports open to the network.',
+            connections: 'Every active connection, with the responsible program and destination.',
+            ports: 'Ports where programs wait for connections from outside.',
+            history: 'Session log: opened and closed connections, new programs and alerts.',
+            startup: 'Programs registered to start with Windows.',
+        },
+        live: 'LIVE', paused: 'PAUSED', error: 'ERROR', notAdmin: 'no admin',
+        pause: 'Pause', resume: 'Resume', export: 'Export',
+        searchPh: 'Filter by process, IP, host or port',
+        all: 'All', suspicious: 'Suspicious', lan: 'Include local network', results: '{n} items',
+        levels: { high: 'HIGH', medium: 'MEDIUM', low: 'LOW', clean: 'clean', trusted: 'trusted' },
+        levelName: { high: 'High risk', medium: 'Medium risk', low: 'Low risk', clean: 'Clean', trusted: 'Trusted' },
+        levelText: {
+            high: 'Several strong signs of malicious behavior. Investigate.',
+            medium: 'Some signals are worth checking.',
+            low: 'Weak signals, common in legitimate programs.',
+            clean: 'No suspicious signals.',
+            trusted: 'Marked by you as trusted.',
+        },
+        status: {
+            label: 'Status',
+            ok: 'No suspicious programs using the network.',
+            okText: '{n} programs with network activity, none showing warning signs.',
+            med: '{n} program(s) with suspicious signals.',
+            medText: 'Nothing severe, but worth opening the details to check.',
+            high: '{n} high-risk program(s).',
+            highText: 'Programs with several typical malware signs are using the network. Check each one on VirusTotal.',
+            seeSus: 'See suspicious', seeAll: 'See processes', startup: 'Check startup',
+        },
+        m: { processes: 'Processes w/ network', internet: 'External connections', listening: 'Exposed ports', high: 'High risk', medium: 'Medium risk' },
+        activity: 'Connections', activityMeta: 'last 5 min', inet: 'internet', est: 'established', now: 'now', ago: '-{m} min',
+        top: 'Most connections', attention: 'Needs attention', events: 'Events',
+        nothing: 'Nothing suspicious right now.', noEvents: 'No relevant events yet.',
+        startupBox: 'Startup', startupNone: 'Not checked yet.', startupRes: '{n} entries · {s} suspicious', open: 'Open',
+        sep: { attention: 'Needs attention', others: 'Other programs' },
+        col: { risk: 'Risk', process: 'Program', publisher: 'Publisher', conns: 'Conn.', ports: 'Ports', dests: 'Destinations', remote: 'Destination', state: 'State', scope: 'Network', age: 'Duration', port: 'Port', addr: 'Address', exposure: 'Exposure', type: 'Type', entry: 'Entry', command: 'Command' },
+        scope: { internet: 'internet', lan: 'local network' },
+        exposed: 'exposed', localOnly: 'local only',
+        restricted: 'restricted path — run as administrator', unsigned: 'unsigned', checking: 'checking…', missing: 'file not found',
+        hf: { all: 'All', alert: 'Alerts', proc_new: 'New', open: 'Connected', close: 'Disconnected' },
+        ev: { open: 'connected', close: 'disconnected', proc_new: 'started using the network', alert: 'high risk' },
+        empty: 'Nothing found', emptySub: 'Adjust the filters or the search.', waiting: 'Collecting data…',
+        st: {
+            title: 'Startup scan',
+            text: 'Reads Run keys, Startup folder, scheduled tasks, third-party services, Winlogon and IFEO — the places where malware registers itself to come back after a reboot.',
+            scan: 'Start scan', rescan: 'Scan again', scanning: 'Scanning…', last: 'last: {t}',
+            none: 'No scan yet', noneSub: 'It takes a few seconds.',
+        },
+        types: { startup: 'Run/Startup', task: 'Task', service: 'Service', winlogon: 'Winlogon', ifeo: 'IFEO' },
+        d: {
+            score: 'Score', actions: 'Actions', reasons: 'Reasons', noReasons: 'No suspicious signals found.',
+            connections: 'Connections', listening: 'Listening ports', details: 'File and process', cmd: 'Command line',
+            path: 'Path', pid: 'PID', parent: 'Parent', started: 'Started', fileCreated: 'File created', size: 'Size', publisher: 'Publisher', sha: 'SHA-256',
+            openFolder: 'Open folder', vt: 'VirusTotal', kill: 'Kill', block: 'Block in firewall', unblock: 'Unblock', trust: 'Trust', untrust: 'Remove trust',
+            gone: 'Process exited — showing the last known data.', blocked: 'blocked in firewall',
+            disclaimer: 'Heuristic score: it points at what deserves attention, it is not a verdict. Confirm on VirusTotal before deleting files.',
+            killTitle: 'Kill {name}?', killText: 'Process {pid} will be terminated immediately. Unsaved work in it will be lost.',
+            blockTitle: 'Block in firewall?', blockText: 'All inbound and outbound traffic from this program will be blocked:\n{path}',
+            confirm: 'Confirm', cancel: 'Cancel', copied: 'Copied.', none: 'none', copy: 'copy',
+        },
+        r: {
+            loc_recycle: 'runs from the Recycle Bin', loc_temp: 'runs from a temp folder', loc_public: 'runs from the Public folder',
+            loc_startup: 'runs from the Startup folder', loc_downloads: 'runs from Downloads', loc_roaming: 'runs from AppData\\Roaming',
+            loc_programdata: 'loose in ProgramData', loc_desktop: 'runs from the Desktop',
+            masquerade: 'Windows process name outside the Windows folder', unsigned: 'no digital signature',
+            sig_tampered: 'tampered signature', sig_invalid: 'invalid signature', sig_valid: 'verified publisher',
+            new_file: 'file created less than 3 days ago', file_missing: 'file no longer exists', path_hidden: 'hidden path',
+            lolbin_network: 'Windows tool abused by malware reaching the internet', suspicious_cmd: 'suspicious command line',
+            office_parent: 'started by Office (macro?)', rat_port: 'common RAT/backdoor port',
+            listening_unsigned: 'unsigned and accepting external connections', listening_rat_port: 'listening on a backdoor port',
+            beaconing: 'repeatedly reconnects to the same IP (possible C2)', winlogon_modified: 'Winlogon modified',
+            ifeo_debugger: 'IFEO debugger configured', script_host: 'starts through a script interpreter',
+        },
+        toastAlert: 'High risk: {name}', failed: 'Failed: {msg}',
+        done: { kill: 'Process killed.', block: 'Blocked in firewall.', unblock: 'Unblocked.', trust: 'Marked as trusted.', untrust: 'Trust removed.' },
+    },
+};
+
+/* ---------- Estado ---------- */
+const store = {
+    get(k, d) { try { return localStorage.getItem(k) ?? d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+const state = {
+    lang: store.get('lang', navigator.language.startsWith('pt') ? 'pt' : 'en'),
+    theme: store.get('theme', 'dark'),
+    page: 'overview',
+    search: '',
+    filter: 'all',
+    showLan: false,
+    hf: 'all',
+    snap: null,
+    selected: null,
+    lastProc: null,
+    lastEventId: null,
+    persistence: null,
+    scanning: false,
+    icons: new Map(),
+};
+
+const $ = (id) => document.getElementById(id);
+const t = (path, vars) => {
+    let v = path.split('.').reduce((o, k) => o?.[k], I18N[state.lang]) ?? path;
+    if (vars) for (const [k, val] of Object.entries(vars)) v = v.replaceAll(`{${k}}`, val);
+    return v;
+};
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const locale = () => (state.lang === 'pt' ? 'pt-BR' : 'en-US');
+const procKey = (p) => (p.path || p.name || '').toLowerCase();
+const fmtTime = (ms) => (ms ? new Date(ms).toLocaleTimeString(locale(), { hour12: false }) : '—');
+const fmtDate = (ms) => (ms ? new Date(ms).toLocaleString(locale(), { hour12: false }) : '—');
+const fmtSize = (b) => (b == null ? '—' : b > 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+const fmtDur = (ms) => {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    if (s < 60) return `${s}s`;
+    if (s < 3600) return `${Math.floor(s / 60)}m${String(s % 60).padStart(2, '0')}s`;
+    return `${Math.floor(s / 3600)}h${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}m`;
+};
+const isSus = (lvl) => lvl === 'high' || lvl === 'medium';
+const extConns = (p) => p.connections.filter((c) => c.scope === 'internet');
+const visConns = (p) => p.connections.filter((c) => state.showLan || c.scope === 'internet');
+const pubPorts = (p) => p.listening.filter((l) => l.public && l.proto === 'TCP');
+
+/* ---------- Atualização incremental do DOM (sem piscar, mantém foco e rolagem) ---------- */
+function patch(target, html) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    morph(target, tpl.content);
+}
+function morph(a, b) {
+    const oldNodes = [...a.childNodes];
+    const newNodes = [...b.childNodes];
+    newNodes.forEach((y, i) => {
+        const x = oldNodes[i];
+        if (!x) return a.appendChild(y);
+        if (x.nodeType !== y.nodeType || x.nodeName !== y.nodeName || (x.nodeType === 1 && x.getAttribute('data-k') !== y.getAttribute('data-k'))) {
+            return a.replaceChild(y, x);
+        }
+        if (x.nodeType !== 1) {
+            if (x.data !== y.data) x.data = y.data;
+            return;
+        }
+        for (const { name } of [...x.attributes]) if (!y.hasAttribute(name)) x.removeAttribute(name);
+        for (const { name, value } of [...y.attributes]) if (x.getAttribute(name) !== value) x.setAttribute(name, value);
+        morph(x, y);
+    });
+    for (let i = oldNodes.length - 1; i >= newNodes.length; i--) a.removeChild(oldNodes[i]);
+}
+
+/* ---------- Componentes ---------- */
+function icon(name, path, cls = '') {
+    const st = path ? state.icons.get(path) : 'fail';
+    const img = path && st !== 'fail'
+        ? `<img src="/api/icon?t=${TOKEN}&p=${encodeURIComponent(path)}" alt="" data-icon="${esc(path)}" onload="iconOk(this)" onerror="iconFail(this)">`
+        : '';
+    return `<span class="ico ${cls} ${st === 'ok' ? 'has' : ''}"><span>${esc((name || '?')[0].toUpperCase())}</span>${img}</span>`;
+}
+window.iconOk = (el) => { state.icons.set(el.dataset.icon, 'ok'); el.parentNode.classList.add('has'); };
+window.iconFail = (el) => { state.icons.set(el.dataset.icon, 'fail'); el.remove(); };
+
+const level = (r) => `<span class="lv c-${r.level}">${t('levels.' + r.level)}${isSus(r.level) || r.level === 'low' ? `<span class="sc">${r.score}</span>` : ''}</span>`;
+
+function publisher(sig, path, exists) {
+    if (!path) return `<span class="muted">—</span>`;
+    if (exists === false) return `<span class="unsigned">${t('missing')}</span>`;
+    if (!sig) return `<span class="muted">${t('checking')}</span>`;
+    if (sig.status === 'Valid') return `<span class="signed">${esc(sig.signer || '')}</span>`;
+    if (sig.status === 'NotSigned') return `<span class="unsigned">${t('unsigned')}</span>`;
+    return `<span class="unsigned">${esc(sig.status)}</span>`;
+}
+
+const empty = (title, sub) => `<div class="empty"><b>${esc(title)}</b>${sub ? esc(sub) : ''}</div>`;
+
+function matches(...fields) {
+    if (!state.search) return true;
+    const q = state.search.toLowerCase();
+    return fields.some((f) => f != null && String(f).toLowerCase().includes(q));
+}
+
+function filters(count, { lan = true, risk = true, extra = '' } = {}) {
+    return `<div class="filters">
+        ${risk ? `<div class="opt">
+            <button data-filter="all" class="${state.filter === 'all' ? 'on' : ''}">${t('all')}</button>
+            <button data-filter="suspicious" class="${state.filter === 'suspicious' ? 'on' : ''}">${t('suspicious')}</button>
+        </div>` : ''}${extra}
+        ${lan ? `<span class="check ${state.showLan ? 'on' : ''}" data-lan><span class="bx">${state.showLan ? '✓' : ''}</span>${t('lan')}</span>` : ''}
+        <span class="grow"></span>
+        <span class="count">${t('results', { n: count })}</span>
+    </div>`;
+}
+
+function whyLine(r) {
+    if (!isSus(r.level) && r.level !== 'low') return '';
+    const list = r.reasons.filter((x) => x.weight > 0).slice(0, 3).map((x) => esc(t('r.' + x.code)));
+    return list.length ? `<div class="why">${list.join('<span class="s">/</span>')}</div>` : '';
+}
+
+/* ---------- Gráficos ---------- */
+function spark(values) {
+    if (values.length < 2) return '<svg></svg>';
+    const max = Math.max(...values, 1), min = Math.min(...values);
+    const span = Math.max(1, max - min);
+    const d = values.map((v, i) => `${i ? 'L' : 'M'}${((i / (values.length - 1)) * 100).toFixed(2)},${(16 - ((v - min) / span) * 14).toFixed(2)}`).join('');
+    return `<svg viewBox="0 0 100 18" preserveAspectRatio="none"><path d="${d}" fill="none" stroke="var(--muted)" stroke-width="1.2" vector-effect="non-scaling-stroke"/></svg>`;
+}
+
+function chart(tl) {
+    if (tl.length < 2) return `<div class="chart-wrap">${empty(t('waiting'))}</div>`;
+    const W = 600, H = 236;
+    const max = Math.max(4, ...tl.map((p) => Math.max(p.internet, p.established)));
+    const top = Math.ceil(max / 4) * 4;
+    const x = (i) => (i / (tl.length - 1)) * W;
+    const y = (v) => H - (v / top) * (H - 6) - 1;
+    const line = (k) => tl.map((p, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(p[k]).toFixed(1)}`).join('');
+    const ticks = [0, 1, 2, 3, 4].map((k) => (top / 4) * k);
+    const inet = line('internet');
+    const span = Math.round((tl[tl.length - 1].t - tl[0].t) / 60000);
+    return `<div class="chart-wrap">
+        ${ticks.map((v) => `<span class="ylab" style="top:${14 + y(v)}px">${v}</span>`).join('')}
+        <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+            ${ticks.map((v) => `<line x1="0" x2="${W}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" vector-effect="non-scaling-stroke"/>`).join('')}
+            <path d="${inet}L${W},${H}L0,${H}Z" fill="var(--fg)" fill-opacity=".05"/>
+            <path d="${line('established')}" fill="none" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3" vector-effect="non-scaling-stroke"/>
+            <path d="${inet}" fill="none" stroke="var(--fg)" stroke-width="1.8" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <div class="xlab"><span>${span ? t('ago', { m: span }) : ''}</span><span>${t('now')}</span></div>
+    </div>`;
+}
+
+/* ---------- Páginas ---------- */
+function pageOverview(s) {
+    const st = s.stats;
+    const tone = st.high ? 'var(--red)' : st.medium ? 'var(--amber)' : 'var(--green)';
+    const [title, text, word] = st.high
+        ? [t('status.high', { n: st.high }), t('status.highText'), t('levels.high')]
+        : st.medium
+            ? [t('status.med', { n: st.medium }), t('status.medText'), t('levels.medium')]
+            : [t('status.ok'), t('status.okText', { n: st.processes }), 'OK'];
+    const tl = s.timeline || [];
+    const sus = s.processes.filter((p) => isSus(p.risk.level));
+    const top = [...s.processes].sort((a, b) => extConns(b).length - extConns(a).length).filter((p) => extConns(p).length).slice(0, 7);
+    const topMax = Math.max(1, ...top.map((p) => extConns(p).length));
+    const events = s.history.filter((e) => e.type === 'alert' || e.type === 'proc_new').slice(0, 8);
+    const pers = state.persistence;
+    const persSus = pers ? pers.items.filter((i) => isSus(i.risk.level)).length : 0;
+
+    const metric = (k, v, go, cls = '', series) => `<div class="metric" data-go="${go}" ${cls ? `data-set-filter="suspicious"` : ''}>
+        <div class="k">${t('m.' + k)}</div><div class="v ${cls}">${v}</div>${series ? spark(series.slice(-60)) : '<svg></svg>'}</div>`;
+
+    return `
+    <section class="status" style="--tone:${tone}">
+        <div class="rule"></div>
+        <div class="txt">
+            <div class="lbl">${t('status.label')} · <b>${word}</b></div>
+            <h2>${esc(title)}</h2>
+            <p>${esc(text)}</p>
+        </div>
+        <div class="acts">
+            ${sus.length ? `<button class="solid" data-go="processes" data-set-filter="suspicious">${t('status.seeSus')}</button>` : `<button class="solid" data-go="processes">${t('status.seeAll')}</button>`}
+            <button data-go="startup">${t('status.startup')}</button>
+        </div>
+    </section>
+
+    <section class="metrics">
+        ${metric('processes', st.processes, 'processes', '', tl.map((p) => p.processes))}
+        ${metric('internet', st.internet, 'connections', '', tl.map((p) => p.internet))}
+        ${metric('listening', st.listening, 'ports')}
+        ${metric('high', st.high, 'processes', st.high ? 'red' : '')}
+        ${metric('medium', st.medium, 'processes', st.medium ? 'amber' : '')}
+    </section>
+
+    <div class="row2">
+        <section class="box">
+            <div class="box-h"><h2>${t('activity')}</h2><span class="meta">${t('activityMeta')}</span><span class="grow"></span>
+                <div class="legend"><span>${t('inet')}</span><span class="dash">${t('est')}</span></div></div>
+            ${chart(tl)}
+        </section>
+        <section class="box">
+            <div class="box-h"><h2>${t('top')}</h2><span class="grow"></span><span class="meta">${t('inet')}</span></div>
+            ${top.length ? `<table class="rank"><tbody>${top.map((p, i) => {
+                const n = extConns(p).length;
+                return `<tr class="click" data-k="${esc(procKey(p))}${p.pid}" data-open="${p.pid}" data-key="${esc(procKey(p))}">
+                    <td class="num muted" style="width:28px">${String(i + 1).padStart(2, '0')}</td>
+                    <td><div class="proc">${icon(p.name, p.path)}<div style="flex:1;min-width:0"><span class="nm">${esc(p.name)}</span><div class="bar"><i style="width:${(n / topMax) * 100}%"></i></div></div></div></td>
+                    <td class="r num">${n}</td>
+                </tr>`;
+            }).join('')}</tbody></table>` : empty(t('waiting'))}
+        </section>
+    </div>
+
+    <div class="row2">
+        <section class="box">
+            <div class="box-h"><h2>${t('attention')}</h2><span class="meta">${sus.length}</span><span class="grow"></span>
+                ${sus.length ? `<button data-go="processes" data-set-filter="suspicious">${t('status.seeSus')}</button>` : ''}</div>
+            ${sus.length ? `<div class="tbl-wrap"><table><tbody>${sus.slice(0, 6).map((p) => procRow(p, true)).join('')}</tbody></table></div>` : empty(t('nothing'))}
+        </section>
+        <div style="display:flex; flex-direction:column; gap:16px; min-width:0">
+            <section class="box">
+                <div class="box-h"><h2>${t('startupBox')}</h2><span class="grow"></span><button data-go="startup">${t('open')}</button></div>
+                <div style="padding:12px 14px">${pers
+                    ? `<span class="num ${persSus ? '' : ''}">${t('startupRes', { n: pers.items.length, s: persSus })}</span> <span class="muted">· ${t('st.last', { t: fmtTime(pers.time) })}</span>`
+                    : `<span class="muted">${t('startupNone')}</span>`}</div>
+            </section>
+            <section class="box">
+                <div class="box-h"><h2>${t('events')}</h2><span class="grow"></span><button data-go="history">${t('open')}</button></div>
+                ${events.length ? `<div class="log compact">${events.map(logRow).join('')}</div>` : empty(t('noEvents'))}
+            </section>
+        </div>
+    </div>`;
+}
+
+function procRow(p, compact) {
+    const conns = visConns(p);
+    const hosts = [...new Set(conns.map((c) => c.host || c.remoteIp))];
+    const sel = state.selected?.key === procKey(p) && state.selected?.pid === p.pid ? 'sel' : '';
+    const tags = `${p.blocked ? ` <span class="tag red">firewall</span>` : ''}${p.trusted ? ` <span class="tag blue">★</span>` : ''}`;
+    return `<tr class="click r-${p.risk.level} ${sel}" data-k="${esc(procKey(p))}${p.pid}" data-open="${p.pid}" data-key="${esc(procKey(p))}">
+        <td class="nw" style="width:110px">${level(p.risk)}</td>
+        <td><div class="proc">${icon(p.name, p.path)}<div style="min-width:0">
+            <div><span class="nm">${esc(p.name)}</span><span class="pid">${p.pid}</span>${tags}</div>
+            <div class="pth">${esc(p.path || t('restricted'))}</div>${whyLine(p.risk)}</div></div></td>
+        ${compact ? '' : `<td class="hide-sm" style="width:200px">${publisher(p.signature, p.path, p.file?.exists)}</td>
+        <td class="r num hide-sm" style="width:64px">${conns.length || '<span class="muted">0</span>'}</td>
+        <td class="r num hide-sm" style="width:64px">${pubPorts(p).length || '<span class="muted">0</span>'}</td>
+        <td class="hide-md" style="width:280px">${hosts.slice(0, 2).map((h) => `<div class="dest">${esc(h)}</div>`).join('')}${hosts.length > 2 ? `<div class="muted num" style="font-size:11.5px">+${hosts.length - 2}</div>` : ''}</td>`}
+    </tr>`;
+}
+
+function pageProcesses(s) {
+    const rows = s.processes.filter((p) => {
+        if (state.filter === 'suspicious' && !isSus(p.risk.level)) return false;
+        if (!state.showLan && !visConns(p).length && !pubPorts(p).length) return false;
+        return matches(p.name, p.path, p.pid, p.signature?.signer, ...p.connections.flatMap((c) => [c.remoteIp, c.host, c.remotePort]));
+    });
+    if (!rows.length) return filters(0) + `<div class="box">${empty(t('empty'), t('emptySub'))}</div>`;
+    const att = rows.filter((p) => isSus(p.risk.level));
+    const oth = rows.filter((p) => !isSus(p.risk.level));
+    const sep = (k, n) => `<tr class="sep" data-k="sep-${k}"><td colspan="6">${t('sep.' + k)} — ${n}</td></tr>`;
+    return filters(rows.length) + `<div class="box tbl-wrap"><table>
+        <thead><tr><th>${t('col.risk')}</th><th>${t('col.process')}</th><th class="hide-sm">${t('col.publisher')}</th><th class="r hide-sm">${t('col.conns')}</th><th class="r hide-sm">${t('col.ports')}</th><th class="hide-md">${t('col.dests')}</th></tr></thead>
+        <tbody>${att.length ? sep('attention', att.length) + att.map((p) => procRow(p)).join('') : ''}${att.length && oth.length ? sep('others', oth.length) : ''}${oth.map((p) => procRow(p)).join('')}</tbody>
+    </table></div>`;
+}
+
+function pageConnections(s) {
+    const rows = [];
+    for (const p of s.processes) {
+        if (state.filter === 'suspicious' && !isSus(p.risk.level)) continue;
+        for (const c of visConns(p)) if (matches(p.name, p.path, p.pid, c.remoteIp, c.host, c.remotePort, c.state)) rows.push({ p, c });
+    }
+    rows.sort((a, b) => b.p.risk.score - a.p.risk.score || a.p.name.localeCompare(b.p.name) || a.c.firstSeen - b.c.firstSeen);
+    if (!rows.length) return filters(0) + `<div class="box">${empty(t('empty'), t('emptySub'))}</div>`;
+    return filters(rows.length) + `<div class="box tbl-wrap"><table>
+        <thead><tr><th>${t('col.process')}</th><th>${t('col.remote')}</th><th class="hide-sm">${t('col.state')}</th><th class="hide-sm">${t('col.scope')}</th><th class="r hide-sm">${t('col.age')}</th><th>${t('col.risk')}</th></tr></thead>
+        <tbody>${rows.map(({ p, c }) => `<tr class="click r-${p.risk.level}" data-k="${esc(procKey(p))}${c.remoteIp}${c.remotePort}${c.localPort}" data-open="${p.pid}" data-key="${esc(procKey(p))}">
+            <td><div class="proc">${icon(p.name, p.path)}<div><span class="nm">${esc(p.name)}</span><span class="pid">${p.pid}</span></div></div></td>
+            <td><div class="dest" style="color:var(--fg)">${esc(c.host || c.remoteIp)}</div><div class="mono muted">${esc(c.remoteIp)}:${c.remotePort}/${c.proto.toLowerCase()}</div></td>
+            <td class="mono hide-sm">${esc(c.state.toLowerCase())}</td>
+            <td class="hide-sm">${c.scope === 'internet' ? t('scope.internet') : `<span class="muted">${t('scope.lan')}</span>`}</td>
+            <td class="r num hide-sm">${fmtDur(s.time - c.firstSeen)}</td>
+            <td class="nw">${level(p.risk)}</td>
+        </tr>`).join('')}</tbody></table></div>`;
+}
+
+function pagePorts(s) {
+    const rows = [];
+    for (const p of s.processes) {
+        if (state.filter === 'suspicious' && !isSus(p.risk.level)) continue;
+        for (const l of p.listening) {
+            if (!l.public && !state.showLan) continue;
+            if (matches(p.name, p.path, p.pid, l.localPort, l.localIp)) rows.push({ p, l });
+        }
+    }
+    rows.sort((a, b) => b.p.risk.score - a.p.risk.score || b.l.public - a.l.public || a.l.localPort - b.l.localPort);
+    if (!rows.length) return filters(0) + `<div class="box">${empty(t('empty'), t('emptySub'))}</div>`;
+    return filters(rows.length) + `<div class="box tbl-wrap"><table>
+        <thead><tr><th class="r" style="width:80px">${t('col.port')}</th><th>${t('col.process')}</th><th class="hide-sm">${t('col.addr')}</th><th>${t('col.exposure')}</th><th>${t('col.risk')}</th></tr></thead>
+        <tbody>${rows.map(({ p, l }) => `<tr class="click r-${p.risk.level}" data-k="${esc(procKey(p))}${l.proto}${l.localIp}${l.localPort}" data-open="${p.pid}" data-key="${esc(procKey(p))}">
+            <td class="r num" style="font-size:14px; font-weight:600">${l.localPort}<span class="muted" style="font-size:11px; font-weight:400">/${l.proto.toLowerCase()}</span></td>
+            <td><div class="proc">${icon(p.name, p.path)}<div><span class="nm">${esc(p.name)}</span><span class="pid">${p.pid}</span></div></div></td>
+            <td class="mono muted hide-sm">${esc(l.localIp)}</td>
+            <td>${l.public ? `<span class="tag amber">${t('exposed')}</span>` : `<span class="tag">${t('localOnly')}</span>`}</td>
+            <td class="nw">${level(p.risk)}</td>
+        </tr>`).join('')}</tbody></table></div>`;
+}
+
+function logRow(e) {
+    const sym = { open: '+', close: '−', proc_new: '*', alert: '!' }[e.type];
+    const conn = e.type === 'open' || e.type === 'close';
+    let what = t('ev.' + e.type);
+    if (conn) what += ` → ${esc(e.host || e.remote)}`;
+    if (e.type === 'alert') what += ` — ${(e.reasons || []).map((c) => esc(t('r.' + c))).join(', ')}`;
+    if (e.type === 'proc_new' && e.path) what += ` <span class="muted">${esc(e.path)}</span>`;
+    const where = conn ? `${e.host ? esc(e.remote) : ''}${e.type === 'close' && e.duration != null ? ` ${fmtDur(e.duration)}` : ''}` : '';
+    return `<div class="log-row e-${e.type}" data-k="${e.id}">
+        <span class="t">${fmtTime(e.t)}</span><span class="sym">${sym}</span>
+        <span class="who">${icon(e.name, e.path)}<span>${esc(e.name)}</span></span>
+        <span class="what">${what}</span><span class="where">${where}</span>
+    </div>`;
+}
+
+function pageHistory(s) {
+    const counts = {};
+    for (const e of s.history) counts[e.type] = (counts[e.type] || 0) + 1;
+    const rows = s.history.filter((e) => {
+        if (state.hf !== 'all' && e.type !== state.hf) return false;
+        if (!state.showLan && e.scope === 'lan') return false;
+        return matches(e.name, e.path, e.remote, e.host);
+    }).slice(0, 300);
+    const opt = `<div class="opt">${['all', 'alert', 'proc_new', 'open', 'close'].map((k) =>
+        `<button data-hf="${k}" class="${state.hf === k ? 'on' : ''}">${t('hf.' + k)}<span class="n">${k === 'all' ? s.history.length : counts[k] || 0}</span></button>`).join('')}</div>`;
+    return filters(rows.length, { risk: false, extra: opt }) + (rows.length
+        ? `<div class="box log">${rows.map(logRow).join('')}</div>`
+        : `<div class="box">${empty(t('empty'), t('emptySub'))}</div>`);
+}
+
+function pageStartup() {
+    const p = state.persistence;
+    const head = `<div class="note">
+        <div class="grow"><h2>${t('st.title')}</h2><p>${t('st.text')}</p></div>
+        ${p ? `<span class="mono muted">${t('st.last', { t: fmtDate(p.time) })}</span>` : ''}
+        <button class="solid" id="btnScan" ${state.scanning ? 'disabled' : ''}>${ic('refresh')}${state.scanning ? t('st.scanning') : p ? t('st.rescan') : t('st.scan')}</button>
+    </div>`;
+    if (!p) return head + `<div class="box">${empty(t('st.none'), t('st.noneSub'))}</div>`;
+
+    const rows = p.items.map((item, idx) => ({ item, idx })).filter(({ item: i }) => {
+        if (state.filter === 'suspicious' && !isSus(i.risk.level)) return false;
+        return matches(i.name, i.command, i.exe, i.location, i.signature?.signer, t('types.' + i.type));
+    });
+    if (!rows.length) return head + filters(0, { lan: false }) + `<div class="box">${empty(t('empty'), t('emptySub'))}</div>`;
+    return head + filters(rows.length, { lan: false }) + `<div class="box tbl-wrap"><table>
+        <thead><tr><th>${t('col.risk')}</th><th class="hide-sm">${t('col.type')}</th><th>${t('col.entry')}</th><th class="hide-sm">${t('col.publisher')}</th><th></th></tr></thead>
+        <tbody>${rows.map(({ item: i, idx }) => `<tr class="r-${i.risk.level}" data-k="st${idx}">
+            <td class="nw" style="width:110px">${level(i.risk)}</td>
+            <td class="hide-sm nw"><span class="tag">${t('types.' + i.type)}</span>${i.state ? `<div class="mono muted" style="margin-top:3px">${esc(i.state.toLowerCase())}</div>` : ''}</td>
+            <td><div class="nm" style="font-weight:600">${esc(i.name)}</div><div class="cmd" title="${esc(i.command)}">${esc(i.command)}</div>${whyLine(i.risk)}</td>
+            <td class="hide-sm" style="width:200px">${publisher(i.signature, i.exe, i.exists)}</td>
+            <td class="r nw">
+                ${i.exe && i.exists ? `<button class="flat" data-sact="folder" data-idx="${idx}" title="${t('d.openFolder')}">${ic('folder')}</button>` : ''}
+                ${i.exe ? `<button class="flat" data-sact="trust" data-idx="${idx}" title="${i.trusted ? t('d.untrust') : t('d.trust')}" style="${i.trusted ? 'color:var(--blue)' : ''}">${ic('star')}</button>` : ''}
+            </td>
+        </tr>`).join('')}</tbody></table></div>`;
+}
+
+/* ---------- Painel de detalhes ---------- */
+function findSelected() {
+    if (!state.selected || !state.snap) return null;
+    const list = state.snap.processes;
+    return list.find((p) => p.pid === state.selected.pid && procKey(p) === state.selected.key)
+        || (state.selected.key && list.find((p) => procKey(p) === state.selected.key));
+}
+
+function renderPanel() {
+    const open = !!state.selected;
+    $('panel').classList.toggle('on', open);
+    $('shade').classList.toggle('on', open);
+    if (!open || !state.snap) return;
+
+    const live = findSelected();
+    if (live) { state.lastProc = live; state.selected.pid = live.pid; }
+    const p = live || state.lastProc;
+    if (!p) return;
+
+    const r = p.risk;
+    const cells = r.level === 'trusted' ? 0 : Math.min(20, Math.ceil(r.score / 5));
+    const vt = p.sha256 ? `https://www.virustotal.com/gui/file/${p.sha256}` : `https://www.virustotal.com/gui/search/${encodeURIComponent(p.name)}`;
+    const now = state.snap.time;
+
+    patch($('panel'), `
+    <div class="p-head">
+        ${icon(p.name, p.path, 'lg')}
+        <div class="grow"><h2>${esc(p.name)}</h2><div>${publisher(p.signature, p.path, p.file?.exists)}${p.blocked ? ` <span class="tag red">${t('d.blocked')}</span>` : ''}</div></div>
+        <button class="flat" id="closePanel" title="Esc">${ic('x')}</button>
+    </div>
+    ${live ? '' : `<div class="gone">${t('d.gone')}</div>`}
+    <div class="p-body">
+        <div class="p-sec c-${r.level}">
+            <div class="verdict">
+                <div class="score">${r.level === 'trusted' ? '★' : r.score}</div>
+                <div><div class="lvl">${t('levelName.' + r.level)}</div><p>${t('levelText.' + r.level)}</p></div>
+            </div>
+            <div class="meter">${Array.from({ length: 20 }, (_, i) => `<i class="${i < cells ? 'f' : ''}"></i>`).join('')}</div>
+        </div>
+        <div class="p-sec">
+            <div class="acts">
+                ${p.path ? `<button data-act="folder">${ic('folder')}${t('d.openFolder')}</button>` : ''}
+                <a href="${vt}" target="_blank" rel="noopener"><button>${ic('external')}${t('d.vt')}</button></a>
+                ${p.path ? `<button data-act="trust">${ic('star')}${p.trusted ? t('d.untrust') : t('d.trust')}</button>` : ''}
+                ${p.path ? (p.blocked ? `<button data-act="unblock">${ic('unlock')}${t('d.unblock')}</button>` : `<button class="bad" data-act="block">${ic('ban')}${t('d.block')}</button>`) : ''}
+                ${live ? `<button class="bad" data-act="kill">${ic('kill')}${t('d.kill')}</button>` : ''}
+            </div>
+        </div>
+        <div class="p-sec">
+            <h3>${t('d.reasons')}</h3>
+            ${r.reasons.length ? `<table class="reasons"><tbody>${r.reasons.map((x) => `<tr>
+                <td class="${x.weight > 0 ? 'pos' : 'neg'}">${x.weight > 0 ? '+' : ''}${x.weight}</td>
+                <td>${esc(t('r.' + x.code))}${x.detail ? `<div class="d">${esc(x.detail)}</div>` : ''}</td>
+            </tr>`).join('')}</tbody></table>` : `<div class="muted">${t('d.noReasons')}</div>`}
+            <div class="disc">${t('d.disclaimer')}</div>
+        </div>
+        <div class="p-sec">
+            <h3>${t('d.connections')} — ${p.connections.length}</h3>
+            ${p.connections.length ? `<table class="conns"><tbody>${p.connections.map((c) => `<tr data-k="${c.remoteIp}${c.remotePort}${c.localPort}">
+                <td style="width:100%; max-width:0"><div class="h dest" style="max-width:none">${esc(c.host || c.remoteIp)}</div><div class="mono muted">${esc(c.remoteIp)}:${c.remotePort} · ${esc(c.state.toLowerCase())} · ${fmtDur(now - c.firstSeen)}</div></td>
+                <td class="nw mono">${c.scope === 'internet'
+                    ? `<a href="https://www.abuseipdb.com/check/${encodeURIComponent(c.remoteIp)}" target="_blank" rel="noopener">abuseipdb</a> · <a href="https://www.virustotal.com/gui/ip-address/${encodeURIComponent(c.remoteIp)}" target="_blank" rel="noopener">vt</a>`
+                    : `<span class="muted">${t('scope.lan')}</span>`}</td>
+            </tr>`).join('')}</tbody></table>` : `<span class="muted">${t('d.none')}</span>`}
+        </div>
+        ${p.listening.length ? `<div class="p-sec"><h3>${t('d.listening')}</h3><div style="display:flex; flex-wrap:wrap; gap:5px">${p.listening.map((l) =>
+            `<span class="tag ${l.public && l.proto === 'TCP' ? 'amber' : ''}">${esc(l.localIp)}:${l.localPort}/${l.proto.toLowerCase()}</span>`).join('')}</div></div>` : ''}
+        <div class="p-sec">
+            <h3>${t('d.details')}</h3>
+            <dl>
+                <dt>${t('d.path')}</dt><dd class="mono">${esc(p.path || t('restricted'))}</dd>
+                <dt>${t('d.pid')}</dt><dd class="num">${p.pid}</dd>
+                <dt>${t('d.parent')}</dt><dd>${esc(p.parentName || '—')} <span class="num muted">${p.ppid ?? ''}</span></dd>
+                <dt>${t('d.started')}</dt><dd>${fmtDate(p.created)}</dd>
+                <dt>${t('d.fileCreated')}</dt><dd>${fmtDate(p.file?.birth)}</dd>
+                <dt>${t('d.size')}</dt><dd>${fmtSize(p.file?.size)}</dd>
+                <dt>${t('d.sha')}</dt><dd class="mono" style="font-size:11.5px">${p.sha256 ? `${p.sha256} <a href="#" data-copy="${p.sha256}">${t('d.copy')}</a>` : (p.path ? t('checking') : '—')}</dd>
+            </dl>
+        </div>
+        ${p.cmd ? `<div class="p-sec"><h3>${t('d.cmd')} <a href="#" data-copy="${esc(p.cmd)}" style="float:right; text-transform:none; letter-spacing:0">${t('d.copy')}</a></h3><pre>${esc(p.cmd)}</pre></div>` : ''}
+    </div>`);
+}
+
+/* ---------- Render ---------- */
+const PAGES = { overview: pageOverview, processes: pageProcesses, connections: pageConnections, ports: pagePorts, history: pageHistory, startup: pageStartup };
+
+function renderTop() {
+    const s = state.snap;
+    const st = s?.stats;
+    const alerts = s ? s.history.filter((e) => e.type === 'alert').length : 0;
+    const persSus = state.persistence?.items.filter((i) => isSus(i.risk.level)).length || 0;
+    const n = {
+        overview: st?.high ? [st.high, 'red'] : st?.medium ? [st.medium, 'amber'] : null,
+        processes: st ? [st.processes] : null,
+        connections: s ? [s.processes.reduce((a, p) => a + visConns(p).length, 0)] : null,
+        ports: st ? [st.listening] : null,
+        history: alerts ? [alerts, 'red'] : null,
+        startup: persSus ? [persSus, 'amber'] : null,
+    };
+    patch($('tabs'), Object.keys(PAGES).map((k) =>
+        `<button data-go="${k}" class="${state.page === k ? 'on' : ''}">${t('tabs.' + k)}${n[k] ? ` <span class="n ${n[k][1] || ''}">${n[k][0]}</span>` : ''}</button>`).join(''));
+
+    const mode = s?.error ? 'error' : s?.paused ? 'paused' : '';
+    patch($('topRight'), `
+        <span class="live" title="${s ? `${s.scanMs} ms` : ''}"><b class="${mode}">${s?.error ? t('error') : s?.paused ? t('paused') : t('live')}</b>${mode ? '' : '<span class="blink" style="color:var(--green)"></span>'}<span>${s ? fmtTime(s.time) : '--:--:--'}</span></span>
+        ${s && !s.isAdmin ? `<span class="warn-admin" title="${esc(t('restricted'))}">${t('notAdmin')}</span>` : ''}
+        <button id="btnPause" title="${s?.paused ? t('resume') : t('pause')}">${ic(s?.paused ? 'play' : 'pause')}</button>
+        <button id="btnExport" title="${t('export')}">${ic('download')}<span class="hide-sm">${t('export')}</span></button>
+        <button id="btnTheme" class="flat" title="Theme">${ic(state.theme === 'dark' ? 'sun' : 'moon')}</button>
+        <button id="btnLang" class="flat num">${state.lang === 'pt' ? 'EN' : 'PT'}</button>`);
+}
+
+function render() {
+    document.documentElement.dataset.theme = state.theme;
+    document.documentElement.lang = state.lang === 'pt' ? 'pt-BR' : 'en';
+    $('title').textContent = t('tabs.' + state.page);
+    $('sub').textContent = t('subs.' + state.page);
+    $('search').placeholder = t('searchPh');
+    $('searchBox').style.display = state.page === 'overview' ? 'none' : '';
+    renderTop();
+    const html = state.page === 'startup' ? pageStartup() : state.snap ? PAGES[state.page](state.snap) : empty(t('waiting'));
+    patch($('content'), `<div data-k="${state.page}">${html}</div>`);
+    renderPanel();
+}
+
+function goTo(page) {
+    if (state.page !== page) $('content').scrollTop = 0;
+    state.page = page;
+    render();
+}
+
+/* ---------- Ações ---------- */
+async function api(action, body = {}) {
+    const res = await fetch(`/api/action/${action}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Token': TOKEN },
+        body: JSON.stringify(body),
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || res.statusText);
+    return json.result;
+}
+
+async function run(action, body, doneKey) {
+    try {
+        const result = await api(action, body);
+        if (doneKey) toast(t('done.' + doneKey));
+        return result;
+    } catch (err) {
+        toast(t('failed', { msg: err.message }), true);
+    }
+}
+
+function toast(msg, err) {
+    const el = document.createElement('div');
+    el.className = `toast ${err ? 'err' : ''}`;
+    el.textContent = msg;
+    $('toasts').appendChild(el);
+    setTimeout(() => el.remove(), err ? 7000 : 2600);
+}
+
+function confirmBox(title, text) {
+    return new Promise((resolve) => {
+        const host = $('modal');
+        host.innerHTML = `<div class="modal-bg"><div class="modal"><h3>${esc(title)}</h3><p>${esc(text)}</p>
+            <div class="m-act"><button data-m="0">${t('d.cancel')}</button><button class="go" data-m="1">${t('d.confirm')}</button></div></div></div>`;
+        const close = (v) => { host.innerHTML = ''; document.removeEventListener('keydown', onKey, true); resolve(v); };
+        const onKey = (e) => { if (e.key === 'Escape') { e.stopPropagation(); close(false); } if (e.key === 'Enter') close(true); };
+        document.addEventListener('keydown', onKey, true);
+        host.firstChild.addEventListener('click', (e) => {
+            const b = e.target.closest('[data-m]');
+            if (b) close(b.dataset.m === '1');
+            else if (e.target.classList.contains('modal-bg')) close(false);
+        });
+        host.querySelector('.go').focus();
+    });
+}
+
+function closePanel() {
+    state.selected = null;
+    state.lastProc = null;
+    render();
+}
+
+function checkAlerts(s) {
+    const newest = s.history[0]?.id ?? 0;
+    if (state.lastEventId === null) { state.lastEventId = newest; return; }
+    for (const e of s.history) {
+        if (e.id <= state.lastEventId) break;
+        if (e.type === 'alert') toast(t('toastAlert', { name: e.name }), true);
+    }
+    state.lastEventId = newest;
+}
+
+function connect() {
+    const es = new EventSource(`/api/events?t=${TOKEN}`);
+    es.onmessage = (msg) => {
+        const s = JSON.parse(msg.data);
+        checkAlerts(s);
+        state.snap = s;
+        render();
+    };
+}
+
+document.addEventListener('click', async (ev) => {
+    const el = (sel) => ev.target.closest(sel);
+
+    if (el('[data-copy]')) {
+        ev.preventDefault();
+        navigator.clipboard.writeText(el('[data-copy]').dataset.copy).then(() => toast(t('d.copied')));
+        return;
+    }
+    if (el('#closePanel') || ev.target === $('shade')) return closePanel();
+    if (el('#btnPause')) return run('pause', { paused: !state.snap?.paused });
+    if (el('#btnExport')) { location.href = `/api/export?t=${TOKEN}`; return; }
+    if (el('#btnTheme')) { state.theme = state.theme === 'dark' ? 'light' : 'dark'; store.set('theme', state.theme); return render(); }
+    if (el('#btnLang')) { state.lang = state.lang === 'pt' ? 'en' : 'pt'; store.set('lang', state.lang); return render(); }
+
+    const go = el('[data-go]');
+    if (go) {
+        state.filter = go.dataset.setFilter || (go.closest('.tabs') ? state.filter : 'all');
+        return goTo(go.dataset.go);
+    }
+    if (el('[data-filter]')) { state.filter = el('[data-filter]').dataset.filter; return render(); }
+    if (el('[data-hf]')) { state.hf = el('[data-hf]').dataset.hf; return render(); }
+    if (el('[data-lan]')) { state.showLan = !state.showLan; return render(); }
+
+    if (el('#btnScan')) {
+        state.scanning = true; render();
+        const result = await run('scanPersistence', {});
+        if (result) state.persistence = result;
+        state.scanning = false; render();
+        return;
+    }
+
+    const sact = el('[data-sact]');
+    if (sact && state.persistence) {
+        const item = state.persistence.items[Number(sact.dataset.idx)];
+        if (!item) return;
+        if (sact.dataset.sact === 'folder') return run('openFolder', { path: item.exe });
+        await run('trust', { path: item.exe, value: !item.trusted }, item.trusted ? 'untrust' : 'trust');
+        state.scanning = true; render();
+        state.persistence = (await run('scanPersistence', {})) || state.persistence;
+        state.scanning = false; render();
+        return;
+    }
+
+    const act = el('[data-act]');
+    if (act && state.lastProc) {
+        const p = state.lastProc;
+        switch (act.dataset.act) {
+            case 'folder': return run('openFolder', { path: p.path });
+            case 'trust': return run('trust', { path: p.path, value: !p.trusted }, p.trusted ? 'untrust' : 'trust');
+            case 'unblock': return run('unblock', { path: p.path }, 'unblock');
+            case 'block':
+                if (await confirmBox(t('d.blockTitle'), t('d.blockText', { path: p.path }))) run('block', { path: p.path, name: p.name }, 'block');
+                return;
+            case 'kill':
+                if (await confirmBox(t('d.killTitle', { name: p.name }), t('d.killText', { pid: p.pid }))) run('kill', { pid: p.pid }, 'kill');
+                return;
+        }
+        return;
+    }
+
+    const open = el('[data-open]');
+    if (open && !el('a')) {
+        state.selected = { pid: Number(open.dataset.open), key: open.dataset.key };
+        state.lastProc = null;
+        render();
+    }
+});
+
+document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && state.selected) closePanel();
+    if (ev.key === '/' && document.activeElement !== $('search')) { ev.preventDefault(); if (state.page === 'overview') goTo('processes'); $('search').focus(); }
+});
+
+$('searchIco').outerHTML = ic('search');
+$('search').addEventListener('input', (ev) => {
+    state.search = ev.target.value.trim();
+    render();
+});
+
+render();
+connect();
+api('persistence').then((r) => { if (r) { state.persistence = r; render(); } }).catch(() => {});
+</script>
+</body>
+</html>

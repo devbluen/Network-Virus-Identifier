@@ -1,20 +1,22 @@
 {
-  "name": "identify-virus",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "name": "network-virus-identifier",
+  "version": "2.0.0",
+  "description": "Finds suspicious processes on Windows based on their network activity",
+  "main": "dist/bundle.cjs",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "bundle": "esbuild index.js --bundle --platform=node --format=cjs --outfile=dist/bundle.cjs",
-    "build": "npm run bundle && node build-sea.js"
+    "start": "node scripts/build.js --bundle-only && node dist/bundle.cjs",
+    "bundle": "node scripts/build.js --bundle-only",
+    "build": "node scripts/build.js"
   },
-  "keywords": [],
+  "keywords": [
+    "security",
+    "malware",
+    "network",
+    "windows"
+  ],
   "author": "devbluen",
   "license": "ISC",
   "type": "module",
-  "dependencies": {
-    "ps-list": "^8.1.1"
-  },
   "devDependencies": {
     "esbuild": "^0.28.2",
     "postject": "^1.0.0-alpha.6",
