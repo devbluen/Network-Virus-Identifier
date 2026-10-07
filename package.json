@@ -4,7 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "bundle": "esbuild index.js --bundle --platform=node --format=cjs --outfile=dist/bundle.cjs",
+    "build": "npm run bundle && node build-sea.js"
   },
   "keywords": [],
   "author": "devbluen",
@@ -12,5 +14,10 @@
   "type": "module",
   "dependencies": {
     "ps-list": "^8.1.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2",
+    "postject": "^1.0.0-alpha.6",
+    "rcedit": "^5.0.2"
   }
 }

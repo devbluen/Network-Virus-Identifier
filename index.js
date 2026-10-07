@@ -29,7 +29,7 @@ const truncatePath = (path) => {
 async function monitor() {
     try {
         // Busca processos via PowerShell
-        const psCmd = `powershell -Command "Get-Process | Select-Object Id, Name, Path | ConvertTo-Json"`;
+        const psCmd = `powershell -NoProfile -Command "Get-Process | Select-Object Id, Name, Path | ConvertTo-Json"`;
         const { stdout: psOut } = await execAsync(psCmd, { maxBuffer: 1024 * 1024 * 10 });
         const processMap = new Map(JSON.parse(psOut).map(p => [p.Id, p]));
 
@@ -105,10 +105,13 @@ async function monitor() {
         }
 
     } catch (err) {
-        
+        console.error('Error:', err.message);
     }
 }
 
 // Execução
-setInterval(monitor, 2500);
-monitor();
+async function loop() {
+    await monitor();
+    setTimeout(loop, 2500);
+}
+loop();
