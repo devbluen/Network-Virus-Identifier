@@ -1,12 +1,10 @@
 {
   "name": "identify-virus",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "bundle": "esbuild index.js --bundle --platform=node --format=cjs --outfile=dist/bundle.cjs",
-    "build": "npm run bundle && node build-sea.js"
+    "build": "node build-sea.js"
   },
   "keywords": [],
   "author": "devbluen",

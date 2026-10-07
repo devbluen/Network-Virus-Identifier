@@ -67,7 +67,7 @@ cd Network-Virus-Identifier
 npm i
 
 # 3. Build the executable
-node build.js
+node build-sea.js
 ```
 
 The result is saved at `build/NetworkVirusIdentifier.exe`.
@@ -81,7 +81,7 @@ Network-Virus-Identifier/
 ├── build/              # final executable (generated)
 ├── dist/               # intermediate files (generated)
 ├── index.js            # monitor code
-├── build.js            # script that builds the executable
+├── build-sea.js            # script that builds the executable
 ├── sea-config.json     # Node SEA configuration
 └── package.json
 ```
