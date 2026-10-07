@@ -58,7 +58,9 @@ Opções: `--no-browser` (não abre a janela, só imprime o endereço) e `--keep
 3. Salve em qualquer pasta (ou num pendrive, já que é portátil).
 4. Dê duplo clique e aceite a solicitação de administrador (UAC).
 
-O painel abre automaticamente. Ao fechar a janela do painel, o programa encerra sozinho.
+O painel abre automaticamente, sem janela de console. Ao fechar a janela do painel, o programa encerra sozinho.
+
+> Se algo der errado, o log fica em `%APPDATA%NetworkVirusIdentifierapp.log`.
 
 </details>
 

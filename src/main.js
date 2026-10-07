@@ -1,6 +1,9 @@
-import { existsSync } from 'node:fs';
+import { createWriteStream, existsSync, mkdirSync } from 'node:fs';
 import { spawn, execFileSync } from 'node:child_process';
 import { join } from 'node:path';
+import os from 'node:os';
+import { format } from 'node:util';
+import { isSea } from 'node:sea';
 import { startServer } from './server.js';
 import { monitor } from './monitor.js';
 import { firewall } from './firewall.js';
@@ -31,8 +34,21 @@ function openWindow(url) {
     if (browser) {
         spawn(browser, [`--app=${url}`, '--window-size=1440,900'], { detached: true, stdio: 'ignore' }).unref();
     } else {
-        spawn('cmd.exe', ['/c', 'start', '""', `"${url}"`], { windowsVerbatimArguments: true, detached: true, stdio: 'ignore' }).unref();
+        spawn('cmd.exe', ['/c', 'start', '""', `"${url}"`], { windowsVerbatimArguments: true, detached: true, stdio: 'ignore', windowsHide: true }).unref();
     }
+}
+
+// O executável roda sem janela de console, então o log vai para %APPDATA%NetworkVirusIdentifierapp.log
+function redirectLogsToFile() {
+    const dir = join(process.env.APPDATA || os.homedir(), 'NetworkVirusIdentifier');
+    mkdirSync(dir, { recursive: true });
+    const log = createWriteStream(join(dir, 'app.log'), { flags: 'w' });
+    const write = (level) => (...args) => log.write(`[${new Date().toISOString()}] ${level} ${format(...args)}
+`);
+    console.log = write('INFO');
+    console.error = write('ERROR');
+    process.on('uncaughtException', (err) => console.error(err));
+    process.on('unhandledRejection', (err) => console.error(err));
 }
 
 function shutdown() {
@@ -43,6 +59,7 @@ function shutdown() {
 
 async function main() {
     process.title = 'Network Virus Identifier';
+    if (isSea()) redirectLogsToFile();
 
     if (process.platform !== 'win32') {
         console.error('Network Virus Identifier currently supports Windows only.');
@@ -58,7 +75,7 @@ async function main() {
     console.log(`  Dashboard: ${url}`);
     console.log(`  Administrator: ${monitor.isAdmin ? 'yes' : 'NO - some paths and actions will be unavailable'}`);
     console.log('');
-    console.log('  Close the dashboard window or press Ctrl+C to exit.');
+    console.log('  Close the dashboard window to exit.');
     console.log('');
 
     firewall.refresh();

@@ -58,7 +58,9 @@ Options: `--no-browser` (doesn't open the window, only prints the address) and `
 3. Save it to any folder (or to a USB drive, since it's portable).
 4. Double-click it and accept the administrator prompt (UAC).
 
-The dashboard opens automatically. Closing the dashboard window also closes the program.
+The dashboard opens automatically, with no console window. Closing the dashboard window also closes the program.
+
+> If something goes wrong, the log is at `%APPDATA%NetworkVirusIdentifierapp.log`.
 
 </details>
 

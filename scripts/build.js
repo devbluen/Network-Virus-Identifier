@@ -83,4 +83,14 @@ await inject(exe, 'NODE_SEA_BLOB', readFileSync(blob), {
     sentinelFuse: 'NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2',
 });
 
+step('Hiding console window...');
+// Troca o subsistema do PE de CONSOLE (3) para WINDOWS_GUI (2): o Windows deixa de abrir
+// a janela preta do console ao executar. O campo fica no offset 68 do Optional Header.
+const image = readFileSync(exe);
+const peOffset = image.readUInt32LE(0x3c);
+if (image.toString('ascii', peOffset, peOffset + 4) !== 'PE\0\0') throw new Error('Invalid PE header');
+const subsystemOffset = peOffset + 24 + 68;
+image.writeUInt16LE(2, subsystemOffset);
+writeFileSync(exe, image);
+
 console.log(`\nDone: ${exe}`);
